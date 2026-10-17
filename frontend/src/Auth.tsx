@@ -3,6 +3,7 @@ import { CheckSquare, LoaderCircle } from "lucide-react";
 import { api, refreshCsrfToken } from "./lib/api";
 import { loginSchema, registerSchema } from "./schemas";
 import type { User } from "./types";
+import axios from "axios";
 
 interface AuthProps {
   onLogin: (user: User) => void;
@@ -21,10 +22,8 @@ export default function Auth({ onLogin }: AuthProps) {
     setError("");
 
     const schema = mode === "login" ? loginSchema : registerSchema;
-    const input = mode === "login"
-      ? { email, password }
-      : { name, email, password };
-
+    const input =
+      mode === "login" ? { email, password } : { name, email, password };
     const parsed = schema.safeParse(input);
 
     if (!parsed.success) {
@@ -35,18 +34,20 @@ export default function Auth({ onLogin }: AuthProps) {
     setLoading(true);
 
     try {
-         const { data } = await api.post(
-  `/auth/${mode}`,
-  parsed.data
-);
+      await refreshCsrfToken();
 
-await refreshCsrfToken();
-onLogin(data.user);
+      const { data } = await api.post(`/auth/${mode}`, parsed.data);
 
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Could not connect to the server"
-      );
+      await refreshCsrfToken();
+      onLogin(data.user);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        setError(
+          err.response?.data?.message || "Could not connect to the server"
+        );
+      } else {
+        setError("Something went wrong. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

@@ -11,8 +11,20 @@ export const api = axios.create({
   },
 });
 
-export async function refreshCsrfToken() {
-  const { data } = await api.get<{ token: string }>("/csrf-token");
+let csrfRefreshPromise: Promise<string> | null = null;
 
-  api.defaults.headers.common["x-csrf-token"] = data.token;
+export function refreshCsrfToken(): Promise<string> {
+  if (!csrfRefreshPromise) {
+    csrfRefreshPromise = api
+      .get<{ token: string }>("/csrf-token")
+      .then(({ data }) => {
+        api.defaults.headers.common["x-csrf-token"] = data.token;
+        return data.token;
+      })
+      .finally(() => {
+        csrfRefreshPromise = null;
+      });
+  }
+
+  return csrfRefreshPromise;
 }
